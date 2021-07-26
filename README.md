@@ -31,3 +31,7 @@ async function requestHandler(req) {
     }
 }
 ```
+
+## Releasing
+
+You can publish by either running npm publish in the dist directory or using npx ipjs publish.
