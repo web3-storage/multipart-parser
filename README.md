@@ -2,6 +2,8 @@
 
 > A simple multipart/form-data parser to use with ReadableStreams
 
+Based on https://github.com/ssttevee/js-multipart-parser
+
 ## Install
 
 ```sh
