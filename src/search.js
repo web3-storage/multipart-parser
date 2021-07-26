@@ -5,23 +5,23 @@ import { stringToArray, mergeArrays, arrayToString } from './utils.js'
   Based heavily on the Streaming Boyer-Moore-Horspool C++ implementation
   by Hongli Lai at: https://github.com/FooBarWidget/boyer-moore-horspool
 */
-function coerce(a) {
+function coerce (a) {
   if (a instanceof Uint8Array) {
     return (index) => a[index]
   }
   return a
 }
-function jsmemcmp(buf1, pos1, buf2, pos2, len) {
+function jsmemcmp (buf1, pos1, buf2, pos2, len) {
   const fn1 = coerce(buf1)
   const fn2 = coerce(buf2)
-  for (var i = 0; i < len; ++i) {
+  for (let i = 0; i < len; ++i) {
     if (fn1(pos1 + i) !== fn2(pos2 + i)) {
       return false
     }
   }
   return true
 }
-function createOccurenceTable(s) {
+function createOccurenceTable (s) {
   // Populate occurrence table with analysis of the needle,
   // ignoring last letter.
   const table = new Array(256).fill(s.length)
@@ -34,7 +34,7 @@ function createOccurenceTable(s) {
 }
 const MATCH = Symbol('Match')
 class StreamSearch {
-  constructor(needle) {
+  constructor (needle) {
     this._lookbehind = new Uint8Array()
     if (typeof needle === 'string') {
       this._needle = needle = stringToArray(needle)
@@ -44,7 +44,8 @@ class StreamSearch {
     this._lastChar = needle[needle.length - 1]
     this._occ = createOccurenceTable(needle)
   }
-  feed(chunk) {
+
+  feed (chunk) {
     let pos = 0
     let tokens
     const allTokens = []
@@ -54,12 +55,14 @@ class StreamSearch {
     }
     return allTokens
   }
-  end() {
+
+  end () {
     const tail = this._lookbehind
     this._lookbehind = new Uint8Array()
     return tail
   }
-  _feed(data, buf_pos) {
+
+  _feed (data, bufPos) {
     const tokens = []
     // Positive: points to a position in `data`
     //           pos == 3 points to data[3]
@@ -132,7 +135,7 @@ class StreamSearch {
         return [data.length, ...tokens]
       }
     }
-    pos += buf_pos
+    pos += bufPos
     // Lookbehind buffer is now empty. Perform Boyer-Moore-Horspool
     // search with optimized character lookup code that only considers
     // the current round's haystack data.
@@ -143,8 +146,8 @@ class StreamSearch {
         data[pos] === this._needle[0] &&
         jsmemcmp(this._needle, 0, data, pos, this._needle.length - 1)
       ) {
-        if (pos > buf_pos) {
-          tokens.push(data.slice(buf_pos, pos))
+        if (pos > bufPos) {
+          tokens.push(data.slice(bufPos, pos))
         }
         tokens.push(MATCH)
         return [pos + this._needle.length, ...tokens]
@@ -172,27 +175,30 @@ class StreamSearch {
     }
     // Everything until pos is guaranteed not to contain needle data.
     if (pos > 0) {
-      tokens.push(data.slice(buf_pos, pos < data.length ? pos : data.length))
+      tokens.push(data.slice(bufPos, pos < data.length ? pos : data.length))
     }
     return [data.length, ...tokens]
   }
-  _charAt(data, pos) {
+
+  _charAt (data, pos) {
     if (pos < 0) {
       return this._lookbehind[this._lookbehind.length + pos]
     }
     return data[pos]
   }
-  _memcmp(data, pos, len) {
+
+  _memcmp (data, pos, len) {
     return jsmemcmp(this._charAt.bind(this, data), pos, this._needle, 0, len)
   }
 }
 
 class ReadableStreamSearch {
-  constructor(needle, _readableStream) {
+  constructor (needle, _readableStream) {
     this._readableStream = _readableStream
     this._search = new StreamSearch(needle)
   }
-  async *[Symbol.asyncIterator]() {
+
+  async * [Symbol.asyncIterator] () {
     const reader = this._readableStream.getReader()
     try {
       while (true) {
@@ -200,7 +206,7 @@ class ReadableStreamSearch {
         if (result.done) {
           break
         }
-        yield* this._search.feed(result.value)
+        yield * this._search.feed(result.value)
       }
       const tail = this._search.end()
       if (tail.length) {
@@ -214,12 +220,13 @@ class ReadableStreamSearch {
 
 const EOQ = Symbol('End of Queue')
 class QueueableStreamSearch {
-  constructor(needle) {
+  constructor (needle) {
     this._chunksQueue = []
     this._closed = false
     this._search = new StreamSearch(needle)
   }
-  push(...chunks) {
+
+  push (...chunks) {
     if (this._closed) {
       throw new Error('cannot call push after close')
     }
@@ -228,7 +235,8 @@ class QueueableStreamSearch {
       this._notify()
     }
   }
-  close() {
+
+  close () {
     if (this._closed) {
       throw new Error('close was already called')
     }
@@ -238,7 +246,8 @@ class QueueableStreamSearch {
       this._notify()
     }
   }
-  async *[Symbol.asyncIterator]() {
+
+  async * [Symbol.asyncIterator] () {
     while (true) {
       let chunk
       while (!(chunk = this._chunksQueue.shift())) {
@@ -248,7 +257,7 @@ class QueueableStreamSearch {
       if (chunk === EOQ) {
         break
       }
-      yield* this._search.feed(chunk)
+      yield * this._search.feed(chunk)
     }
     const tail = this._search.end()
     if (tail.length) {
@@ -257,7 +266,7 @@ class QueueableStreamSearch {
   }
 }
 
-function splitChunks(chunks, needle) {
+function splitChunks (chunks, needle) {
   const search = new StreamSearch(needle)
   const outchunks = [[]]
   for (const chunk of chunks) {
@@ -273,10 +282,10 @@ function splitChunks(chunks, needle) {
   outchunks[outchunks.length - 1].push(end)
   return outchunks.map((chunks) => mergeArrays(...chunks))
 }
-function split(buf, needle) {
+function split (buf, needle) {
   return splitChunks([buf], needle)
 }
-async function* chunksIterator(iter) {
+async function * chunksIterator (iter) {
   let chunks = []
   for await (const value of iter) {
     if (value === MATCH) {
@@ -288,19 +297,19 @@ async function* chunksIterator(iter) {
   }
   yield chunks
 }
-async function* stringIterator(iter) {
+async function * stringIterator (iter) {
   for await (const chunk of chunksIterator(iter)) {
     yield chunk.map(arrayToString).join('')
   }
 }
-async function allStrings(iter) {
+async function allStrings (iter) {
   const segments = []
   for await (const value of stringIterator(iter)) {
     segments.push(value)
   }
   return segments
 }
-async function* arrayIterator(iter) {
+async function * arrayIterator (iter) {
   for await (const chunk of chunksIterator(iter)) {
     yield mergeArrays(...chunk)
   }
@@ -316,5 +325,5 @@ export {
   chunksIterator,
   split,
   splitChunks,
-  stringIterator,
+  stringIterator
 }

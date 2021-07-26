@@ -9,7 +9,7 @@ import { arraysEqual, stringToArray, arrayToString, mergeArrays } from './utils.
 const mergeArrays2 = Function.prototype.apply.bind(mergeArrays, undefined)
 const dash = stringToArray('--')
 const CRLF = stringToArray('\r\n')
-function parseContentDisposition(header) {
+function parseContentDisposition (header) {
   const parts = header.split(';').map((part) => part.trim())
   if (parts.shift() !== 'form-data') {
     throw new Error(
@@ -55,7 +55,7 @@ function parseContentDisposition(header) {
   }
   return out
 }
-function parsePartHeaders(lines) {
+function parsePartHeaders (lines) {
   const entries = []
   let disposition = false
   let line
@@ -82,7 +82,7 @@ function parsePartHeaders(lines) {
   }
   return Object.fromEntries(entries)
 }
-async function readHeaderLines(it, needle) {
+async function readHeaderLines (it, needle) {
   let firstChunk = true
   let lastTokenWasMatch = false
   const headerLines = [[]]
@@ -131,7 +131,7 @@ async function readHeaderLines(it, needle) {
             ...tokens
               .slice(i + 1)
               .map((token) => (token === MATCH ? CRLF : token))
-          ),
+          )
         ]
       }
       if ((lastTokenWasMatch = isMatch)) {
@@ -142,7 +142,7 @@ async function readHeaderLines(it, needle) {
     }
   }
 }
-export async function* streamMultipart(body, boundary) {
+export async function * streamMultipart (body, boundary) {
   const needle = mergeArrays(dash, stringToArray(boundary))
   const it = new ReadableStreamSearch(needle, body)[Symbol.asyncIterator]()
   // discard prologue
@@ -162,7 +162,7 @@ export async function* streamMultipart(body, boundary) {
     if (!headerLines) {
       return
     }
-    async function nextToken() {
+    async function nextToken () {
       const result = await it.next()
       if (result.done) {
         throw new Error(
@@ -172,7 +172,7 @@ export async function* streamMultipart(body, boundary) {
       return result
     }
     let trailingCRLF = false
-    function feedChunk(chunk) {
+    function feedChunk (chunk) {
       const chunks = []
       for (const token of crlfSearch.feed(chunk)) {
         if (trailingCRLF) {
@@ -185,7 +185,7 @@ export async function* streamMultipart(body, boundary) {
       return mergeArrays(...chunks)
     }
     let done = false
-    async function nextChunk() {
+    async function nextChunk () {
       const result = await nextToken()
       let chunk
       if (result.value !== MATCH) {
@@ -202,10 +202,10 @@ export async function* streamMultipart(body, boundary) {
     yield {
       ...parsePartHeaders(headerLines),
       data: {
-        [Symbol.asyncIterator]() {
+        [Symbol.asyncIterator] () {
           return this
         },
-        async next() {
+        async next () {
           for (;;) {
             const result = bufferedChunks.shift()
             if (!result) {
@@ -224,8 +224,8 @@ export async function* streamMultipart(body, boundary) {
               return result
             }
           }
-        },
-      },
+        }
+      }
     }
     while (!done) {
       bufferedChunks.push(await nextChunk())
@@ -239,7 +239,7 @@ export async function* streamMultipart(body, boundary) {
  * @param {string} boundary
  * @returns {AsyncIterable<FilePart>}
  */
-export async function* iterateMultipart(body, boundary) {
+export async function * iterateMultipart (body, boundary) {
   for await (const part of streamMultipart(body, boundary)) {
     const chunks = []
     for await (const chunk of part.data) {
@@ -247,7 +247,7 @@ export async function* iterateMultipart(body, boundary) {
     }
     yield {
       ...part,
-      data: mergeArrays(...chunks),
+      data: mergeArrays(...chunks)
     }
   }
 }
